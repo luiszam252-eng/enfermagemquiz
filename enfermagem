@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Enfermagem Quiz Master</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 20px; }
+    #app { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; }
+    h1 { text-align: center; }
+    .menu button { display: block; width: 100%; margin: 10px 0; padding: 15px; font-size: 16px; }
+    .alternativa { display: block; margin: 10px 0; padding: 10px; background: #eaeaea; border-radius: 5px; cursor: pointer; }
+    .alternativa:hover { background: #dcdcdc; }
+    #feedback { margin-top: 15px; font-weight: bold; }
+    #pontuacao { margin-top: 20px; font-size: 18px; text-align: center; }
+    #proxima { margin-top: 20px; padding: 10px 20px; }
+    #status, #ranking, #loja { margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 5px; }
+    #ranking { background: #e0e0e0; }
+    #loja { background: #d0f0d0; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <h1>Enfermagem Quiz Master</h1>
+    <div id="menu" class="menu">
+      <button onclick="iniciarCampanha()">Campanha</button>
+      <button onclick="iniciarSimulado()">Simulado</button>
+      <button onclick="iniciarTreino()">Treino</button>
+      <button onclick="iniciarDesafio()">Desafio Diário</button>
+    </div>
+
+    <div id="quiz" style="display:none;">
+      <div id="pergunta"></div>
+      <div id="alternativas"></div>
+      <div id="feedback"></div>
+      <div id="pontuacao"></div>
+      <button id="proxima" style="display:none;">Próxima</button>
+    </div>
+
+    <div id="status">
+      <p>XP: <span id="xp">0</span></p>
+      <p>Nível: <span id="nivel">1</span></p>
+      <p>Moedas: <span id="moedas">0</span></p>
+      <p>Conquistas: <span id="conquistas">Nenhuma</span></p>
+    </div>
+
+    <div id="ranking">
+      <h3>Ranking Local</h3>
+      <ol id="rankingLista"></ol>
+    </div>
+
+    <div id="loja">
+      <h3>Loja</h3>
+      <button onclick="comprarItem('Avatar Enfermeiro', 50)">Avatar Enfermeiro - 50 moedas</button>
+      <button onclick="comprarItem('Tema Noturno', 100)">Tema Noturno - 100 moedas</button>
+      <button onclick="comprarItem('Dica Extra', 30)">Dica Extra - 30 moedas</button>
+    </div>
+  </div>
+
+  <script>
+    // Banco de questões (exemplo reduzido; inserir todas as 1200)
+    const bancoQuestoes = [
+      {
+        "ID": "Q0001",
+        "Capítulo": "Fundamentos e Biossegurança",
+        "Módulo": "Higienização das mãos",
+        "Tipo": "Múltipla escolha",
+        "Pergunta": "Qual é o tempo mínimo recomendado para higienização das mãos com água e sabão?",
+        "Alternativas": ["10s", "20s", "40s", "60s"],
+        "Resposta": "40s",
+        "Explicação": "A OMS recomenda entre 40 e 60 segundos para eficácia."
+      },
+      {
+        "ID": "Q0850",
+        "Capítulo": "Urgência e Emergência",
+        "Módulo": "Suporte básico de vida",
+        "Tipo": "Múltipla escolha",
+        "Pergunta": "Qual a relação compressão/ventilação na RCP em adultos?",
+        "Alternativas": ["15:2", "20:2", "30:2", "50:2"],
+        "Resposta": "30:2",
+        "Explicação": "Padrão internacional de reanimação."
+      }
+    ];
+
+    let questoesSelecionadas = [];
+    let questaoAtual = 0;
+    let pontuacao = 0;
+
+    // Sistema de XP, moedas e níveis
+    let xp = parseInt(localStorage.getItem("xp")) || 0;
+    let nivel = parseInt(localStorage.getItem("nivel")) || 1;
+    let moedas = parseInt(localStorage.getItem("moedas")) || 0;
+    let conquistas = JSON.parse(localStorage.getItem("conquistas")) || [];
+
+    function atualizarStatus() {
+      document.getElementById("xp").innerText = xp;
+      document.getElementById("nivel").innerText = nivel;
+      document.getElementById("moedas").innerText = moedas;
+      document.getElementById("conquistas").innerText = conquistas.length > 0 ? conquistas.join(", ") : "Nenhuma";
+      atualizarRanking();
+    }
+
+    function ganharXP(valor) {
+      xp += valor;
+      if (xp >= nivel * 50) {
+        nivel++;
+        conquistas.push("Subiu para nível " + nivel);
+      }
+      salvarProgresso();
+      atualizarStatus();
+    }
+
+    function ganharMoedas(valor) {
+      moedas += valor;
+      if (moedas >= 500 && !conquistas.includes("Acumulou 500 moedas")) {
+        conquistas.push("Acumulou 500 moedas");
+      }
+      salvarProgresso();
+      atualizarStatus();
+    }
+
+    function comprarItem(item, custo) {
+      if (moedas >= custo) {
+        moedas -= custo;
+        conquistas.push("Comprou " + item);
+        alert("Você comprou: " + item);
+      } else {
+        alert("Moedas insuficientes!");
+      }
+      salvarProgresso();
+      atualizarStatus();
+    }
+
+    function salvarProgresso() {
+      localStorage.setItem("xp", xp);
+      localStorage.setItem("nivel", nivel);
+      localStorage.setItem("moedas", moedas);
+      localStorage.setItem("conquistas", JSON.stringify(conquistas));
+    }
+
+    function iniciarCampanha() { iniciarQuiz(10, "Campanha"); }
+    function iniciarSimulado() { iniciarQuiz(20, "Simulado"); }
+    function iniciarTreino() { iniciarQuiz(5, "Treino"); }
+    function iniciarDesafio() { iniciarQuiz(1, "Desafio Diário"); }
+
+    function iniciarQuiz(qtd, modo) {
+      document.getElementById("menu").style.display = "none";
+      document.getElementById("quiz").style.display = "block";
+      questoesSelecionadas = bancoQuestoes.sort(() => 0.5 - Math.random()).slice(0, qtd);
+      questaoAtual = 0;
+      pontuacao = 0;
+      mostrarQuestao();
+    }
+
+    function mostrarQuestao() {
+      const q = questoesSelecionadas[questaoAtual];
+      document.getElementById("pergunta").innerText = q.Pergunta;
+      const altDiv = document.getElementById("alternativas");
+      altDiv.innerHTML = "";
+      q.Alternativas.forEach(alt => {
+        const btn = document.createElement("div");
+        btn.className = "alternativa";
+        btn.innerText = alt;
+        btn.onclick = () => verificarResposta(alt, q);
+        altDiv.appendChild(btn);
+      });
+      document.getElementById("feedback").innerText = "";
+      document.getElementById("proxima").style.display = "none";
+    }
+
+    function verificarResposta(resposta, q) {
+      if (resposta === q.Resposta) {
+        pontuacao++;
+        ganharXP(10);
+        ganharMoedas(5);
+        document.getElementById("feedback").innerText = "✅ Correto! " + q.Explicacao;
+      } else {
+        document.getElementById("feedback").innerText = "❌ Errado. " + q.Explicacao;
+      }
+      document.getElementById("proxima").style.display = "inline-block";
+    }
+
+    document.getElementById("proxima").onclick = () => {
+      questaoAtual++;
+      if (questaoAtual < questoesSelecionadas.length) {
+        mostrarQuestao();
+      } else {
+        finalizarQuiz();
+      }
+    };
+
+    function finalizarQuiz() {
+      document.getElementById("pergunta").innerText = "Quiz concluído!";
+      document.getElementById("alternativas").innerHTML = "";
+      document.get
